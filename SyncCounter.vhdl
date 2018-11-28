@@ -24,7 +24,7 @@ end  entity SYNC_COUNTER;
 
 -------------------------------Architecture
 architecture rtl of SYNC_COUNTER is
-  signal count : STD_LOGIC_VECTOR(9 downto 0); -- TODO could be array; should always be big enough?
+  signal count : STD_LOGIC_VECTOR(9 downto 0);
 begin
 
   process (clock, reset, enable) 

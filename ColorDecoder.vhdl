@@ -29,6 +29,9 @@ begin
 
     if code_input = "00" then
       -- nothing, all signals off
+      r_out <= "0010";
+      b_out <= "0010";
+      g_out <= "0010";
     elsif code_input = "01" then
       r_out <= SIG_ON;
     elsif code_input = "10" then
