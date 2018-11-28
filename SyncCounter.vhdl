@@ -6,52 +6,60 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.all;
 use ieee.numeric_std.all;
-use IEEE.std_logic_unsigned.all;
+use IEEE.std_logic_unsigned.all; -- allows increment/decrement to STD_LOGIC_VECTOR
 
 ------------------------------sync_counter
-entity sync_counter is
+entity SYNC_COUNTER is
   generic(
-    length : INTEGER;               -- 525 800
+    total_length : INTEGER; --total cycles
+    data_length : INTEGER; -- how long to output data
     sync_start : INTEGER;
     sync_end : INTEGER
   );
   port(clock, reset, enable: in STD_LOGIC;
-    sync, enable_out: out STD_LOGIC ;
-    addr: out STD_LOGIC_VECTOR --TODO help what length
+    sync, enable_out: out STD_LOGIC;
+    addr: out STD_LOGIC_VECTOR(9 downto 0) --todo this needs to drop down lower
   );
-end  entity sync_counter;
+end  entity SYNC_COUNTER;
 
 -------------------------------Architecture
-architecture rtl of sync_counter is
-  signal count : STD_LOGIC_VECTOR(9 downto 0); -- should always be big enough?
+architecture rtl of SYNC_COUNTER is
+  signal count : STD_LOGIC_VECTOR(9 downto 0); -- TODO could be array; should always be big enough?
 begin
 
-  process (clock, reset) 
+  process (clock, reset, enable) 
   begin
   if reset = '0' then 
-    count <= "0";
+    count <= "0000000000";
     enable_out <= '0';
-    addr <= "0";
+    addr <= "0000000000";
     sync <= '1';
   elsif rising_edge(clock) then
     if enable = '1' then
+
       count <= count + 1;
 
-      if count = length - 1 then
-        count <= "0";
+      -- wraparound & enable next stage
+      if count = total_length - 1 then
+        count <= "0000000000";
+        enable_out <= '1';
+      else 
+        enable_out <= '0';
       end if;
 
-      if count = sync_start then
-        sync <= '0';
-      elsif count = sync_end then
-        sync <= '1';
-      end if;
-
-      if count <= sync_start then
+      -- output a data address only when video data is expected 
+      if count < data_length then
         addr <= count;
       else
-        addr <= "0";
-      end if; --TODO am i synthesizing a latch or am I assigning a vector correctly??
+        addr <= "0000000000"; --garbage data written off screen
+      end if;
+
+      --sync pulse
+      if (count >= sync_start) and (count <  sync_end) then
+        sync <= '0';
+      else
+        sync <= '1';
+      end if;
 
     end if;
   end if; 
