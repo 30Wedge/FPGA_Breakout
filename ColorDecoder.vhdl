@@ -27,16 +27,16 @@ begin
     b_out <= SIG_OFF;
     g_out <= SIG_OFF;
 
-    if code_input = "00" then
+    if code_input = "00" then --Background
       -- nothing, all signals off
       r_out <= "0010";
       b_out <= "0010";
       g_out <= "0010";
-    elsif code_input = "01" then
+    elsif code_input = "01" then -- brick color
       r_out <= SIG_ON;
-    elsif code_input = "10" then
+    elsif code_input = "10" then -- ball color
       b_out <= SIG_ON;
-    else -- code_input = "11"
+    else -- code_input = "11"   --wall & paddle color
       r_out <= SIG_ON;
       b_out <= SIG_ON;
       g_out <= SIG_ON;

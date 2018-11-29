@@ -33,8 +33,6 @@ architecture rtl of BREAKOUT is
   signal temp_ball_pos_y : STD_LOGIC_VECTOR(4 downto 0);
   signal temp_ball_dir_x : STD_LOGIC;
   signal temp_ball_dir_y : STD_LOGIC;
-  signal temp_ball_gonna_bounce_x : STD_LOGIC;
-  signal temp_ball_gonna_bounce_y : STD_LOGIC;
   --controller signals
   signal controller_addr : STD_LOGIC_VECTOR(10 downto 0);
   signal controller_w_data : STD_LOGIC_VECTOR(1 downto 0);
@@ -130,16 +128,14 @@ begin
   generic map (
     ball_r_x => 10, -- reset coordinates
     ball_r_y => 10, -- reset coordinates
-    ball_v_x_init => 30, --x inverse speed (updates / pixel)
-    ball_v_y_init => 30 --x inverse speed (updates / pixel)
+    ball_v_x_init => 15, --x inverse speed (updates / pixel)
+    ball_v_y_init => 15 --x inverse speed (updates / pixel)
   )
   port map(
     clock => update_enable, --not clock.Surprise. The enable signal was going for too long TODO will this cause problems?
     a_resetl => areset_L,
     resetl => '1',  -- TODO, will I ever sync reset? probably not
     enable => '1',
-    ball_will_bounce_x => temp_ball_gonna_bounce_x,
-    ball_will_bounce_y => temp_ball_gonna_bounce_y,
     --outputs
     ball_update => ball_update,
     ball_pos_x => temp_ball_pos_x,
@@ -157,13 +153,11 @@ begin
     enable => '1' , --TODO is there a better way to conditionally enable this?
     ball_pos_x => temp_ball_pos_x,
     ball_pos_y => temp_ball_pos_y,
-    ball_dir_x => temp_ball_dir_x,
-    ball_dir_y => temp_ball_dir_y,
     ball_update => ball_update,
 
     --outputs
-    ball_gonna_bounce_x => temp_ball_gonna_bounce_x,
-    ball_gonna_bounce_y => temp_ball_gonna_bounce_y,
+    ball_dir_x => temp_ball_dir_x,
+    ball_dir_y => temp_ball_dir_y,
     mem_address => controller_addr,
     mem_data_in => controller_w_data,
     mem_wren => controller_wren,
