@@ -7,16 +7,14 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.all;
 use ieee.numeric_std.all;
-use IEEE.std_logic_unsigned.all; -- allows increment/decrement to STD_LOGIC_VECTOR
 
 ------------------------------sync_counter
 entity Paddle_Controller is
   generic(
-    paddle_length : INTEGER; --total cycles
-    screen_width : INTEGER; -- how wide the paddle can go
-    paddle_y : INTEGER; -- starting y coordinate
-    paddle_min_x : STD_LOGIC_VECTOR(9 downto 0); --how far left you can go
-    paddle_max_x : STD_LOGIC_VECTOR(9 downto 0) -- farthest right open space
+    paddle_length : UNSIGNED; --total cycles
+    paddle_y : UNSIGNED; -- starting y coordinate
+    paddle_min_x : UNSIGNED; --how far left you can go
+    paddle_max_x : UNSIGNED -- farthest right open space
   );
   port(
     clock, resetl, enable: in STD_LOGIC; -- async active low reset, active high enable
@@ -38,7 +36,7 @@ begin
     variable temp_paddle_update : STD_LOGIC := '0';
   begin
     if resetl = '0' then
-      paddle_leftedge_reg <= paddle_min_x;
+      paddle_leftedge_reg <= std_logic_vector(paddle_min_x);
       last_button_reg <= "00";
     end if; -- reset
 
@@ -47,14 +45,14 @@ begin
       if enable = '1' then
         if last_button_reg(0) = '1' and buttons(0) = '0' then
           --move right if you can
-          if paddle_leftedge_reg > paddle_min_x then
-            paddle_leftedge_reg <=  paddle_leftedge_reg - 1;
+          if unsigned(paddle_leftedge_reg) > paddle_min_x then
+            paddle_leftedge_reg <=  std_logic_vector(unsigned(paddle_leftedge_reg) - 1);
             temp_paddle_update :='1';
           end if;
         elsif last_button_reg(1) = '1' and buttons(1) = '0' then
           -- move left if you can
-          if (paddle_leftedge_reg + paddle_length) < paddle_max_x then
-            paddle_leftedge_reg <=  paddle_leftedge_reg + 1;
+          if (unsigned(paddle_leftedge_reg) + paddle_length) < paddle_max_x then
+            paddle_leftedge_reg <=  std_logic_vector(unsigned(paddle_leftedge_reg) + 1);
             temp_paddle_update := '1';
           end if;
         end if; -- button edge
@@ -74,8 +72,8 @@ begin
     variable temp_out : STD_LOGIC := '0';
   begin
     temp_out := '0';
-    if ball_pos_y_next = paddle_y then
-      if ball_pos_x_next > paddle_leftedge_reg and ball_pos_x_next < (paddle_leftedge_reg + paddle_length) then
+    if unsigned(ball_pos_y_next) = paddle_y then
+      if unsigned(ball_pos_x_next) > unsigned(paddle_leftedge_reg) and unsigned(ball_pos_x_next) < (unsigned(paddle_leftedge_reg) + paddle_length) then
         temp_out := '1';
       end if;
     end if;

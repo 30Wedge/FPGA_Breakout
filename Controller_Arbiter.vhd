@@ -14,26 +14,22 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.all;
 use ieee.numeric_std.all;
-use IEEE.std_logic_unsigned.all; -- allows increment/decrement to STD_LOGIC_VECTOR
+--use IEEE.std_logic_unsigned.all; -- including this library makes it break. I don't know why
 
 ------------------------------sync_counter
 entity Controller_arbiter is
-  generic(
-    paddle_length : INTEGER; --total cycles
-    screen_width : INTEGER; -- how wide the paddle can go
-    paddle_y : INTEGER; -- starting y coordinate
-    paddle_min_x : STD_LOGIC_VECTOR(9 downto 0); --how far left you can go
-    paddle_max_x : STD_LOGIC_VECTOR(9 downto 0) -- farthest right open space
-  );
   port(
-    clock, resetl, enable: in STD_LOGIC; -- async active low reset, active high enable
-    ball_pos_x, ball_pos_y : in STD_LOGIC_VECTOR(9 downto 0);
-    ball_pos_x_next, ball_pos_y_next : in  STD_LOGIC_VECTOR(9 downto 0);
-    paddle_leftedge_x : in STD_LOGIC_VECTOR(9 downto 0);
-    paddle_ball_bounce : in STD_LOGIC
+    clock, aresetl, resetl, enable: in STD_LOGIC; -- async active low reset, active high enable
+    ball_pos_x : in STD_LOGIC_VECTOR(5 downto 0);
+    ball_pos_y : in STD_LOGIC_VECTOR(4 downto 0);
+    ball_dir_x : in STD_LOGIC;
+    ball_dir_y : in  STD_LOGIC;
+    ball_gonna_bounce_x : out STD_LOGIC;
+    ball_gonna_bounce_y : out STD_LOGIC;
+    ball_update : in STD_LOGIC;
 
-    mem_address : out STD_LOGIC(10 downto 0);
-    mem_data  : out STD_LOGIC(1 downto 0);
+    mem_address : out STD_LOGIC_VECTOR(10 downto 0);
+    mem_data_in  : out STD_LOGIC_VECTOR(1 downto 0);
     mem_wren    : out STD_LOGIC  := '0';
     mem_data_out   : OUT STD_LOGIC_VECTOR (1 DOWNTO 0)
   );
@@ -41,78 +37,89 @@ end  entity Controller_arbiter;
 
 -------------------------------Architecture
 architecture rtl of Controller_arbiter is
-  type state_action is (draw_paddle, draw_ball, read_next_ball, remove_brick, reset_game);
-  signal present_state, next_state : state_action;
+  type state_action is (init_wait, draw_ball, wait_for_changes, check_for_ball_bounce);
+  signal present_state : state_action := init_wait;
+  signal next_state : state_action := init_wait;
+
   --are these good practice? maybe
   signal state_counter : INTEGER := 0;
-  signal state_len : INTEGER := 1;
 
-  signal apocalyptic_game_ending_event_detected : STD_LOGIC := 0; --1 if we need to reset
-  signal last_paddle_leftedge : STD_LOGIC_VECTOR (9 downto 0);  
+  signal old_ball_pos_x_reg : STD_LOGIC_VECTOR(5 downto 0) := "000000";
+  signal old_ball_pos_y_reg : STD_LOGIC_VECTOR(4 downto 0) := "00000";
+
+  --how long it takes to work in each state
+  constant INIT_WAIT_LEN : INTEGER := 5;
+  constant DRAW_BALL_LEN : INTEGER := 5;
+  constant WAIT_FOR_CHANGES_LEN : INTEGER := 3;
 begin
   
-  seq : process(clock, resetl) is
+  --change those states
+  seq : process(clock) is
   begin
-    if resetl = '0' then
-      present_state <= draw_paddle;
-      next_state <= draw_paddle;
-
+    if rising_edge(clock) then
+      if resetl = '0' then
+        present_state <= init_wait;
+      else
+        present_state <= next_state;
+      end if;
     end if;
-    present_state <= next_state;
   end process seq; 
 
-  ns_logic : process(present_state, state_counter, apocalyptic_game_ending_event_detected) --todo state_len??
+  --do work in each state
+  ns_output : process(clock)
   begin
-    --only increment state if the current state has run its course
-    if state_counter >= state_len then
-      --normally no inputs,
+    if rising_edge(clock) and enable = '1' then
+      state_counter <= state_counter + 1;
       case present_state is
-        when draw_paddle =>
-           next_state <= draw_ball;
+
+        when init_wait =>
+          next_state <= init_wait;
+          -- I'm milling to let the ball controller do its thing? I don't know if it needs this time, but I'm giving it plenty just in case because I don't want to debug it later
+
+          if state_counter >= INIT_WAIT_LEN then
+            state_counter <= 0;
+            next_state <= draw_ball;
+          end if;
+
         when draw_ball =>
-          next_state <= read_next_ball;
-        when read_next_ball =>
-          next_state <= remove_brick;
-        when remove_brick =>
-          next_state <+ draw_paddle;
-        when reset_game =>
-          next_state <= draw_paddle;
+          next_state <= draw_ball;
+
+          case state_counter is
+            when 3 => -- draw new ball
+              mem_address <= ball_pos_y & ball_pos_x;
+              mem_data_in <= "10"; -- bleh pixel
+              mem_wren <= '1';
+            when 1 => -- draw erased old ball --TODO does 4 give it enough cycles to write?
+              mem_address <= old_ball_pos_y_reg & old_ball_pos_x_reg;
+              mem_data_in <= "00"; -- background pixel
+              mem_wren <= '1';
+              old_ball_pos_x_reg <= ball_pos_x;
+              old_ball_pos_y_reg <= ball_pos_y;
+            when 4 => --register updated ball position
+             -- old_ball_pos_x_reg <= ball_pos_x;
+              --old_ball_pos_y_reg <= ball_pos_y;
+              mem_wren <= '0';
+            when others => --disable memory write
+              mem_address <= "00000000000";
+              mem_wren <= '0';
+          end case;
+
+          if state_counter >= DRAW_BALL_LEN then
+            state_counter <= 0;
+            next_state <= wait_for_changes;
+          end if;
+        when check_for_ball_bounce =>
+
+        when wait_for_changes =>--TODO there's probably a better way to do this with a separate process sensitive to the ball_pos variables
+          next_state <= wait_for_changes;
+
+          --wait for ball update
+          if ball_update ='1' then
+            state_counter <= 0;
+            next_state <= init_wait;
+          end if;
       end case;
-    else
-      next_state <= present_state;
     end if;
+  end process ns_output;
 
-    if apocalyptic_game_ending_event_detected = '1' then
-      next_state <= reset_game;
-      apocalyptic_game_ending_event_detected <= '0'
-    end if;
-  end process ns_logic;
-
-  op : process(clock, present_state, enable)
-  begin
-    if rising_edge(clock) and enable = '1':
-        case present_state is
-      when draw_paddle =>    --draw the paddle
-        --TODO
-      when draw_ball =>
-        --TODO
-      when read_next_ball =>
-        --TODO
-      when remove_brick =>
-        --TODO
-      when reset_game =>
-        --TODO
-    end case;
-
-    --draw the ball
-
-    -- 
-    --read next_ball pos from memory
-      -- determine if bounce from memory
-      -- if you can, remove the brick
-    end if;
-  end process op;
-  
--- comb or calculated bounce with paddle_controller
-  
 end architecture rtl;
