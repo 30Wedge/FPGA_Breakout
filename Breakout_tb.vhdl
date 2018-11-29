@@ -32,6 +32,7 @@ architecture behavior of BREAKOUT_TB is
   signal tb_r: STD_LOGIC_VECTOR(3 downto 0); -- 4b color
   signal tb_b: STD_LOGIC_VECTOR(3 downto 0); -- 4b color
   signal tb_g: STD_LOGIC_VECTOR(3 downto 0); -- 4b color
+  signal tb_keys : STD_LOGIC_VECTOR(1 downto 0);
 --clock period
   constant tb_clock_period : time := 20 ns; --50MHz input clock
 begin
@@ -43,6 +44,7 @@ begin
     MAX10_CLK1_50 => tb_clock,
     SW => tb_reset,
     LEDR => tb_led,
+    KEY => tb_keys,
     VGA_VS => tb_vsync,
     VGA_HS => tb_hsync,
     VGA_R => tb_r,
