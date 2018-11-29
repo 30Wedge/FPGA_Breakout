@@ -13,6 +13,7 @@ entity BREAKOUT is
   MAX10_CLK1_50: in STD_LOGIC;
   SW : in STD_LOGIC_VECTOR(9 downto 0);    -- connected to reset L, push high to run
   LEDR : out STD_LOGIC_VECTOR(9 downto 0) := (others => '0'); -- just diagnostics to keep me sane
+  KEY : in STD_LOGIC_VECTOR(1 downto 0);
   VGA_HS, VGA_VS: out STD_LOGIC;
   VGA_R, VGA_B, VGA_G: out STD_LOGIC_VECTOR(3 downto 0) -- vga digital color sigs
 );
@@ -27,19 +28,23 @@ architecture rtl of BREAKOUT is
   signal areset_L : STD_LOGIC;
   signal clk : STD_LOGIC; --26.5MHz clock
 
-  signal update_enable : STD_LOGIC;
+  signal update_enable : STD_LOGIC; --vsync output
   --ball specific
   signal temp_ball_pos_x : STD_LOGIC_VECTOR(5 downto 0);
   signal temp_ball_pos_y : STD_LOGIC_VECTOR(4 downto 0);
   signal temp_ball_dir_x : STD_LOGIC;
   signal temp_ball_dir_y : STD_LOGIC;
+  signal ball_update : STD_LOGIC;
+
+  signal temp_paddle_leftedge: STD_LOGIC_VECTOR(5 downto 0);
+  signal paddle_update : STD_LOGIC;
+
   --controller signals
   signal controller_addr : STD_LOGIC_VECTOR(10 downto 0);
   signal controller_w_data : STD_LOGIC_VECTOR(1 downto 0);
   signal controller_wren : STD_LOGIC;
   signal controller_r_data :STD_LOGIC_VECTOR(1 downto 0);
   signal memory_out : STD_LOGIC_VECTOR(1 downto 0);
-  signal ball_update : STD_LOGIC;
 begin 
   
   --clock divider PLL
@@ -129,7 +134,7 @@ begin
     ball_r_x => 10, -- reset coordinates
     ball_r_y => 10, -- reset coordinates
     ball_v_x_init => 15, --x inverse speed (updates / pixel)
-    ball_v_y_init => 15 --x inverse speed (updates / pixel)
+    ball_v_y_init => 7 --x inverse speed (updates / pixel)
   )
   port map(
     clock => update_enable, --not clock.Surprise. The enable signal was going for too long TODO will this cause problems?
@@ -144,6 +149,20 @@ begin
     ball_dir_y => temp_ball_dir_y
   );
 
+  paddle_updater : entity WORK.Paddle_Controller
+  generic map(
+    paddle_min_x => 1, --how far left you can go
+    paddle_max_x => 37-- farthest right open space
+  )
+  port map(
+    clock => update_enable, --TODO I don't like this structure
+    resetl => areset_L,
+    enable => '1',
+    buttons => KEY, 
+    paddle_leftedge_x => temp_paddle_leftedge,
+    update_detected => paddle_update
+  );
+
   --coordinate the two controllers
   arbiter : entity WORK.Controller_arbiter
   port map(
@@ -151,6 +170,10 @@ begin
     aresetl => areset_L,
     resetl => '1', --TODO need to switch to synch reset
     enable => '1' , --TODO is there a better way to conditionally enable this?
+
+    paddle_update => paddle_update,
+    paddle_leftedge_x => temp_paddle_leftedge,
+
     ball_pos_x => temp_ball_pos_x,
     ball_pos_y => temp_ball_pos_y,
     ball_update => ball_update,

@@ -13,8 +13,8 @@ entity BALL_CONTROLLER is
   generic(
     ball_r_x : INTEGER; -- reset coordinates (are in pixels) --TODO these don't do anything rn
     ball_r_y : INTEGER; -- reset coordinates
-    ball_v_x_init : INTEGER := 30; --x inverse speed (updates / pixel moved)
-    ball_v_y_init : INTEGER := 30--x inverse speed (updates / pixel moved)
+    ball_v_x_init : INTEGER := 20; --x inverse speed (updates / pixel moved)
+    ball_v_y_init : INTEGER := 15--x inverse speed (updates / pixel moved)
   );
   port(
     --this should run for one clock cycle every

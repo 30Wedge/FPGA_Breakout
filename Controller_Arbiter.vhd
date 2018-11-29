@@ -18,8 +18,16 @@ use ieee.numeric_std.all;
 
 ------------------------------sync_counter
 entity Controller_arbiter is
+  generic(
+    PADDLE_Y : INTEGER := 5; --TODO this is also ahrdcoded
+    PADDLE_LEN : INTEGER := 3 --must be 3 because I hardcoded it :(
+    );
   port(
     clock, aresetl, resetl, enable: in STD_LOGIC; -- async active low reset, active high enable
+
+    paddle_update : in STD_LOGIC;
+    paddle_leftedge_x : in STD_LOGIC_VECTOR(5 downto 0);
+
     ball_pos_x : in STD_LOGIC_VECTOR(5 downto 0);
     ball_pos_y : in STD_LOGIC_VECTOR(4 downto 0);
     ball_dir_x : out STD_LOGIC;
@@ -36,7 +44,7 @@ end  entity Controller_arbiter;
 
 -------------------------------Architecture
 architecture rtl of Controller_arbiter is
-  type state_action is (init_wait, draw_ball, wait_for_changes, check_for_ball_bounce);
+  type state_action is (init_wait, draw_paddle, draw_ball, wait_for_changes, check_for_ball_bounce);
   signal present_state : state_action := init_wait;
   signal next_state : state_action := init_wait;
 
@@ -46,15 +54,18 @@ architecture rtl of Controller_arbiter is
   signal old_ball_pos_x_reg : STD_LOGIC_VECTOR(5 downto 0) := "000000";
   signal old_ball_pos_y_reg : STD_LOGIC_VECTOR(4 downto 0) := "00000";
 
+  signal old_paddle_left_x_reg : STD_LOGIC_VECTOR(5 downto 0) := "000000";
+
   signal ball_bounce_results : STD_LOGIC_VECTOR(2 downto 0) := "000"; --0 => brick present to x+, 1=> brick present to y+, 2, brick present to x+,y+
   signal ball_dir_x_reg : STD_LOGIC := '1';
   signal ball_dir_y_reg : STD_LOGIC := '1';
   --how long it takes to work in each state
   constant INIT_WAIT_LEN : INTEGER := 5;
   constant DRAW_BALL_LEN : INTEGER := 5;
+  constant DRAW_PADDLE_LEN : INTEGER := 13;
   constant CHECK_BOUNCE_LEN : INTEGER := 20;
   constant WAIT_FOR_CHANGES_LEN : INTEGER := 3;
-begin
+begin --TODO draw paddle update before ball
   
   ball_dir_x <= ball_dir_x_reg;
   ball_dir_y <= ball_dir_y_reg;
@@ -73,6 +84,7 @@ begin
 
   --do work in each state
   ns_output : process(clock)
+    variable PADDLE_Y_SL : STD_LOGIC_VECTOR(4 downto 0) := "00101"; --cheating
   begin
     if rising_edge(clock) and enable = '1' then
       state_counter <= state_counter + 1;
@@ -85,6 +97,48 @@ begin
           if state_counter >= INIT_WAIT_LEN then
             state_counter <= 0;
             next_state <= draw_ball;
+          end if;
+
+        when draw_paddle => -----------------------------------------------------------------
+          --next_state <= draw_ball;
+
+          case state_counter is
+            when 1 => -- draw black space
+              if unsigned(old_paddle_left_x_reg) < unsigned(paddle_leftedge_x) then
+                mem_wren <='1';
+                mem_data_in <= "00"; -- background pixel
+                mem_address <= PADDLE_Y_SL & old_paddle_left_x_reg;
+              elsif unsigned(old_paddle_left_x_reg) > unsigned(paddle_leftedge_x) then
+                mem_wren <='1';
+                mem_data_in <= "00"; -- background pixel
+                mem_address <= PADDLE_Y_SL & std_logic_vector(unsigned(old_paddle_left_x_reg) + PADDLE_LEN + 1);
+              else
+                --no update?
+                mem_wren <= '0';
+              end if;
+            when 4 => -- draw paddle 1
+              mem_address <= PADDLE_Y_SL & std_logic_vector(unsigned(paddle_leftedge_x) + 1);
+              mem_data_in <= "11"; -- strong
+              mem_wren <= '1';
+            when 7 => --draw paddle 2
+              mem_address <= PADDLE_Y_SL & std_logic_vector(unsigned(paddle_leftedge_x) + 2);
+              mem_data_in <= "11"; -- strong
+              mem_wren <= '1';
+            when 11 => --draw paddle 3
+              mem_address <= PADDLE_Y_SL & std_logic_vector(unsigned(paddle_leftedge_x) + 3);
+              mem_data_in <= "11"; -- strong
+              mem_wren <= '1';
+            when 13 => --register updated ball position
+              old_paddle_left_x_reg <= paddle_leftedge_x;
+              mem_wren <= '0';
+            when others => --disable memory write
+              mem_address <= "00000000000";
+              mem_wren <= '0';
+          end case;
+
+          if state_counter >= DRAW_PADDLE_LEN then
+            state_counter <= 0;
+            next_state <= init_wait;
           end if;
 
         when draw_ball => -----------------------------------------------------------------
@@ -211,14 +265,20 @@ begin
         when wait_for_changes =>  -----------------------------------------------------------------
           ---next_state <= wait_for_changes;
 
-          --wait for ball update
-          if ball_update ='1' then
-            --have to reset bounce outputs
-            --ball_gonna_bounce_x_reg <= '0';
-            --ball_gonna_bounce_y_reg <= '0';
-            state_counter <= 0;
-            next_state <= init_wait;
-          end if;
+          --just check for next state every time?
+          state_counter <= 0;
+          next_state <= draw_paddle;
+          --check for paddle update fi
+          --if paddle_update = '1' then
+          --  state_counter <= 0;
+          --  next_state <= draw_paddle;
+          --elsif ball_update ='1' then
+          --  --have to reset bounce outputs
+          --  --ball_gonna_bounce_x_reg <= '0';
+          --  --ball_gonna_bounce_y_reg <= '0';
+          --  state_counter <= 0;
+          --  next_state <= init_wait;
+          --end if;
       end case;
     end if;
   end process ns_output;
