@@ -1,0 +1,25 @@
+%%% Breakout VGA test memory pattern
+%%% Structure: -- [ Horizontal data.... ] [ blank stuff ]
+%%%               [ Horizontal data.... ] [ blank stuff ]
+%%%               |--------40-----------|
+%%%               |------------------64-----------------|
+%%%
+%%% And there's 32 rows of this, only the first 30 matter
+
+% only 4 possible values per block
+
+WIDTH = 2;  
+DEPTH = 2048;
+
+DATA_RADIX = HEX;
+ADDRESS_RADIX = HEX;
+
+% specifying address values
+
+CONTENT
+BEGIN
+
+%paint the whole thing 1 idgaf
+[0..7FF] : 1;
+
+END;

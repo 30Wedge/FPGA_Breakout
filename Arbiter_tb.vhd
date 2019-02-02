@@ -16,13 +16,15 @@ architecture behavior of Arbiter_TB is
 --inputs
   signal tb_clock : STD_LOGIC := '0';
   signal tb_reset : STD_LOGIC := '0';
+
+  signal tb_paddle_update : STD_LOGIC := '0';
+  signal tb_paddle_leftedge_x: STD_LOGIC_VECTOR(5 downto 0) := (others => '0');
+
   signal tb_ball_pos_x : STD_LOGIC_VECTOR(5 downto 0) := "000100";
   signal tb_ball_pos_y : STD_LOGIC_VECTOR(4 downto 0) := "00100";
   signal tb_ball_dir_x : STD_LOGIC;
   signal tb_ball_dir_y : STD_LOGIC;
   signal tb_ball_update : STD_LOGIC;
-  signal tb_ball_gonna_bounce_x : STD_LOGIC;
-  signal tb_ball_gonna_bounce_y : STD_LOGIC;
 
 --outputs  
   signal tb_mem_address  : STD_LOGIC_VECTOR(10 downto 0);
@@ -42,13 +44,13 @@ begin
     aresetl => tb_reset,
     resetl => '1', --TODO need to switch to synch reset
     enable => '1' , --TODO is there a better way to conditionally enable this?
+    paddle_update => tb_paddle_update,
+    paddle_leftedge_x => tb_paddle_leftedge_x,
     ball_pos_x => tb_ball_pos_x,
     ball_pos_y => tb_ball_pos_y,
     ball_dir_x => tb_ball_dir_x,
     ball_dir_y => tb_ball_dir_y,
     ball_update => tb_ball_update,
-    ball_gonna_bounce_x => tb_ball_gonna_bounce_x,
-    ball_gonna_bounce_y => tb_ball_gonna_bounce_y,
     mem_address => tb_mem_address,
     mem_data_in => tb_mem_data_in,
     mem_wren => tb_mem_wren,
